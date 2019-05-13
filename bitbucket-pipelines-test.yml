@@ -1,0 +1,41 @@
+image: atlassian/default-image:2
+options:
+  max-time: 5
+pipelines:
+    branches:
+        master:
+          - step:
+              name : Build and Push Image
+              services:
+                - docker
+              cache:
+                - docker
+              script:
+                - docker-compose -f "docker-compose.yml" up -d --build
+                - export IMAGE_NAME=$DOCKER_HUB_REGISTRY/$DOCKER_IMAGE_NAME:$BITBUCKET_COMMIT
+                - docker login --username $DOCKER_HUB_USERNAME --password $DOCKER_HUB_PASSWORD $DOCKER_HUB_REGISTRY
+                - docker push $IMAGE_NAME         
+          - step:
+              name: Deploy to production
+              deployment: test
+              trigger: manual
+              script:
+                - echo "production start"
+                - export IMAGE_NAME=$DOCKER_HUB_REGISTRY/$DOCKER_IMAGE_NAME:$BITBUCKET_COMMIT
+                - ssh $SSH_USER "sudo docker login --username $DOCKER_HUB_USERNAME --password $DOCKER_HUB_PASSWORD $DOCKER_HUB_REGISTRY"
+                - ssh $SSH_USER "sudo docker rm -f $CONTAINER_NAME"
+                - ssh $SSH_USER "sudo docker pull $IMAGE_NAME"
+                - ssh $SSH_USER "sudo docker run -d -p $PORT:80 --name $CONTAINER_NAME -d $IMAGE_NAME"
+                - echo "production end"
+          - step:
+              name: Deploy to production
+              deployment: production
+              trigger: manual
+              script:
+                - echo "production start"
+                - export IMAGE_NAME=$DOCKER_HUB_REGISTRY/$DOCKER_IMAGE_NAME:$BITBUCKET_COMMIT
+                - ssh $SSH_USER "sudo docker login --username $DOCKER_HUB_USERNAME --password $DOCKER_HUB_PASSWORD $DOCKER_HUB_REGISTRY"
+                - ssh $SSH_USER "sudo docker rm -f $CONTAINER_NAME"
+                - ssh $SSH_USER "sudo docker pull $IMAGE_NAME"
+                - ssh $SSH_USER "sudo docker run -d -p $PORT:80 --name $CONTAINER_NAME -d $IMAGE_NAME"
+                - echo "production end"
