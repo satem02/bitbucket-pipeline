@@ -1,0 +1,28 @@
+image: atlassian/default-image:2
+options:
+  max-time: 5
+pipelines:
+  default:
+    - step:
+        name : Build and Push Image
+        services:
+          - docker
+        cache:
+          - docker
+        script:
+          - docker-compose -f "docker-compose.yml" up -d --build
+          - export IMAGE_NAME=$DOCKER_HUB_REGISTRY/$DOCKER_IMAGE_NAME:$BITBUCKET_COMMIT
+          - docker save --output tmp-image.docker $IMAGE_NAME
+        artifacts:
+          - tmp-image.docker 
+    - step:
+        name : Build and Push Image
+        services:
+          - docker
+        cache:
+          - docker
+        script:
+          - docker images
+          - export IMAGE_NAME=$DOCKER_HUB_REGISTRY/$DOCKER_IMAGE_NAME:$BITBUCKET_COMMIT
+          - docker load --input tmp-image.docker
+          - docker images
